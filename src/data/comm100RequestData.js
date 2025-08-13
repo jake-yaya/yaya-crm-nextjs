@@ -1,4 +1,4 @@
-export function getChatByMetricsRequestBody(startDate, endDate) {
+export function getTotalChatsRequestBody(startDate, endDate) {
   return {
     cubeEntities: [
       {
@@ -167,5 +167,246 @@ export function getChatByMetricsRequestBody(startDate, endDate) {
     ],
     mergeType: "column",
     timezone: -420,
+  };
+}
+
+export function getChatsByAgentRequestBody(startDate, endDate, categories) {
+  return {
+    cubeEntities: [
+      {
+        name: "AgentStatusLog",
+        fields: [
+          {
+            name: "linearChatTime",
+            calculationType: "sum",
+            valueType: "timespan",
+            expression: "",
+            fieldName: "LinearChatTime",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+          {
+            name: "idleTime",
+            calculationType: "sum",
+            valueType: "timespan",
+            expression: "",
+            fieldName: "IdleTime",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+          {
+            name: "loginTime",
+            calculationType: "sum",
+            valueType: "timespan",
+            expression: "",
+            fieldName: "LoggedInTime",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+          {
+            name: "agentUtilization",
+            calculationType: "expression",
+            valueType: "percent",
+            expression: "linearChatTime/loginTime",
+            fieldName: "",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+          {
+            name: "agent",
+            calculationType: "originalValue",
+            valueType: "string",
+            expression: "",
+            fieldName: "Agent.DisplayName",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+          {
+            name: "agentId",
+            calculationType: "originalValue",
+            valueType: "string",
+            expression: "",
+            fieldName: "AgentId",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+          {
+            name: "agentFirstName",
+            calculationType: "originalValue",
+            valueType: "string",
+            expression: "",
+            fieldName: "Agent.FirstName",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+          {
+            name: "agentLastName",
+            calculationType: "originalValue",
+            valueType: "string",
+            expression: "",
+            fieldName: "Agent.LastName",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+        ],
+        rowGroups: [
+          {
+            name: "agentId",
+            fieldName: "AgentId",
+            isFull: true,
+          },
+        ],
+        filters: [
+          {
+            fieldName: "StartTime",
+            matchType: "between",
+            value: [startDate, endDate],
+          },
+        ],
+      },
+      {
+        name: "Chat",
+        fields: [
+          {
+            name: "chats",
+            calculationType: "count",
+            valueType: "int",
+            expression: "",
+            fieldName: "Id",
+            conditionExpression: "NormalStatus",
+            conditionMatchType: "all",
+            conditions: [
+              {
+                name: "NormalStatus",
+                fieldName: "Status",
+                operate: "equals",
+                values: ["0"],
+              },
+            ],
+            enumItems: [],
+          },
+          {
+            name: "avgConcurrentChats",
+            calculationType: "expression",
+            valueType: "decimal",
+            expression: "totalChatTime/loginTime",
+            fieldName: "",
+            conditionExpression: "",
+            conditionMatchType: "all",
+            conditions: [],
+            enumItems: [],
+          },
+          {
+            name: "totalChatTime",
+            calculationType: "sum",
+            valueType: "timespan",
+            expression: "",
+            fieldName: "ChatAgent.Duration",
+            conditionExpression: "NormalStatus",
+            conditionMatchType: "all",
+            conditions: [
+              {
+                name: "NormalStatus",
+                fieldName: "Status",
+                operate: "equals",
+                values: ["0"],
+              },
+            ],
+            enumItems: [],
+          },
+        ],
+        rowGroups: [
+          {
+            name: "agentId",
+            fieldName: "ChatAgent.AgentId",
+            isFull: true,
+          },
+        ],
+        filters: [
+          {
+            fieldName: "RequestedTime",
+            matchType: "between",
+            value: [startDate, endDate],
+          },
+          {
+            fieldName: "ChatAgent.Agent.Id",
+            matchType: "notEquals",
+            value: [null],
+          },
+          {
+            fieldName: "Duration",
+            matchType: "greaterThan",
+            value: ["0"],
+          },
+          {
+            fieldName: "ChatType",
+            matchType: "equals",
+            value: ["0", "2"],
+          },
+          {
+            name: "ChatWrapupCategory.CategoryOption.Id",
+            fieldName: "ChatWrapupCategory.CategoryOption.Id",
+            operator: "equals",
+            value: categories,
+          },
+        ],
+      },
+    ],
+    mergeType: "column",
+    timezone: "Pacific Standard Time",
+  };
+}
+
+export function getChatsCategoriesRequestBody() {
+  return {
+    cubeEntities: [
+      {
+        name: "Chat",
+        fields: [
+          {
+            name: "categoryOptionName",
+            calculationType: "originalValue",
+            valueType: "string",
+            expression: "",
+            fieldName: "ChatWrapupCategory.CategoryOption.Name",
+            conditions: [],
+          },
+          {
+            name: "categoryOptionID",
+            calculationType: "originalValue",
+            valueType: "string",
+            expression: "",
+            fieldName: "ChatWrapupCategory.CategoryOptionId",
+            conditions: [],
+          },
+        ],
+        rowGroups: [
+          {
+            name: "categoryId",
+            fieldName: "ChatWrapupCategory.CategoryOptionId",
+            isFull: true,
+          },
+        ],
+        filters: [],
+      },
+    ],
+    mergeType: "column",
+    timezone: "Pacific Standard Time",
   };
 }

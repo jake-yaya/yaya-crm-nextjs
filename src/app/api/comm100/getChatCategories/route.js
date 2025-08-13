@@ -1,7 +1,7 @@
-import { getChatByMetricsRequestBody } from "../../../../data/comm100RequestData";
+import { getChatsByAgentRequestBody } from "../../../../data/comm100RequestData";
 
 export async function POST(req) {
-  const { startDate, endDate } = await req.json(); // assuming you're passing params in body
+  const { startDate, endDate, category } = await req.json(); // assuming you're passing params in body
 
   const url = process.env.COMM100_URL;
   const username = process.env.COMM100_USERNAME;
@@ -10,7 +10,7 @@ export async function POST(req) {
   if (!url || !username || !password) {
     return new Response(JSON.stringify({ error: "Missing env variables" }), { status: 500 });
   }
-  const body = getChatByMetricsRequestBody(startDate, endDate);
+  const body = getChatsByAgentRequestBody(startDate, endDate, category);
   console.log(body);
   try {
     const response = await fetch(url, {
@@ -23,7 +23,7 @@ export async function POST(req) {
     });
 
     const data = await response.json();
-
+    console.log(data);
     return new Response(JSON.stringify(data), {
       status: 200,
     });
