@@ -23,3 +23,33 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html {
+  overflow-y: overlay; /* Chrome/Edge (uses overlay scrollbar) */
+  scrollbar-gutter: stable both-edges; /* Firefox – keeps space consistent */
+}
+
+/* Works in Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 6px; /* Thin scrollbar */
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent; /* No track background */
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 100, 0.4); /* Subtle thumb */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.6);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 100, 100, 0.4) transparent;
+}
