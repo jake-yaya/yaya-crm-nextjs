@@ -1,6 +1,14 @@
 "use client";
+// For menu buttons
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { ChevronDownIcon } from "@heroicons/react/20/solid";
+// For dialog modals
+import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
+// For input fields
+import { Description, Field, Input, Label } from "@headlessui/react";
+// For Dropdown Menus
+import { Listbox, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/react";
+import clsx from "clsx";
+import { ChevronDownIcon, CheckIcon } from "@heroicons/react/20/solid";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -16,12 +24,27 @@ function formatDate(dateString) {
   });
 }
 
+//Types of Refunds Available when user presses Issue Refund button
+const refundTypes = [
+  { id: 1, name: "Store Credit" },
+  { id: 2, name: "Refund" },
+];
+
 export default function Order() {
   const params = useParams();
   const [orderData, setOrderData] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("timeline"); // timeline | notes | tasks
+  const [isOpen, setIsOpen] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [selectRefundType, setSelectedRefundType] = useState(refundTypes[0]);
+  const [actionType, setActionType] = useState("");
+
+  const openModal = (type) => {
+    setActionType(type);
+    setIsOpen(true);
+  };
 
   const formatCurrency = (value) => {
     if (value === null || value === undefined || value === "") return "—";
@@ -75,22 +98,12 @@ export default function Order() {
 
   function renderTabContent(timeline, notes) {
     if (activeTab === "timeline") {
-      const items = [
-        { label: "Placed Date", value: timeline.placedDate },
-        { label: "Deposco Downloaded", value: timeline.deposcoDownloaded },
-        { label: "Planned Ship Date", value: timeline.plannedShipDate },
-        { label: "Actual Ship Date", value: timeline.actualShipDate },
-        { label: "Planned Arrival Date", value: timeline.plannedArrivalDate },
-      ];
-
       return (
         <div className="space-y-4">
           {timeline.map((item, idx) => (
             <div key={idx} className="flex flex-col">
               <span className="text-sm font-medium text-gray-600">{item.label}</span>
-              <span className="text-base text-gray-900">
-                {item.date ? formatDate(item.date) : <span className="text-gray-400 italic">N/A</span>}
-              </span>
+              <span className="text-base text-gray-900">{item.date ? formatDate(item.date) : <span className="text-gray-400 italic">N/A</span>}</span>
             </div>
           ))}
         </div>
@@ -228,9 +241,7 @@ export default function Order() {
             </div>
             <div>
               <dt className="text-sm text-gray-500">Add Info</dt>
-              <dd className="mt-1 text-base text-gray-900 max-w-full overflow-x-auto whitespace-nowrap">
-                {orderSummary.addInfo}
-              </dd>
+              <dd className="mt-1 text-base text-gray-900 max-w-full overflow-x-auto whitespace-nowrap">{orderSummary.addInfo}</dd>
             </div>
             <div>
               <dt className="text-sm text-gray-500">Weight</dt>
@@ -261,6 +272,158 @@ export default function Order() {
       </section>
     );
   }
+
+  const ActionModal = ({ isOpen, onClose, actionType }) => {
+    const renderFields = () => {
+      switch (actionType) {
+        case "refund":
+          return (
+            <>
+              <Field className="mt-3">
+                <Label className="text-sm/6 font-medium text-black">Amount</Label>
+                <div className="relative mt-3">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-gray-500">$</span>{" "}
+                  <Input
+                    className={clsx(
+                      "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                      "pl-7"
+                    )}
+                  />{" "}
+                </div>
+              </Field>
+              <Field className="mt-3">
+                <Label className="text-sm/6 font-medium text-black mt-3">Description</Label>
+                <div className="relative mt-3">
+                  <Input
+                    className={clsx(
+                      "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    )}
+                  />{" "}
+                </div>
+              </Field>
+              <Field className="mt-3">
+                <Label className="text-sm/6 font-medium text-black mt-3">Description</Label>
+                <Listbox value={selectRefundType} onChange={setSelectedRefundType}>
+                  <ListboxButton
+                    className={clsx(
+                      "relative block w-full rounded-lg bg-white/5 py-1.5 pr-8 pl-3 text-left text-sm/6 text-white",
+                      "focus:not-data-focus:outline-none data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25"
+                    )}
+                  >
+                    {selectRefundType.name}
+                    <ChevronDownIcon className="group pointer-events-none absolute top-2.5 right-2.5 size-4 fill-white/60" aria-hidden="true" />
+                  </ListboxButton>
+                  <ListboxOptions
+                    anchor="bottom"
+                    transition
+                    className={clsx(
+                      "absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white shadow-lg",
+                      "ring-1 ring-black ring-opacity-5 focus:outline-none",
+                      "transition duration-100 ease-in data-leave:data-closed:opacity-0"
+                    )}
+                  >
+                    {refundTypes.map((refundType) => (
+                      <ListboxOption
+                        key={refundType.name}
+                        value={refundType.name}
+                        className="group flex cursor-default items-center gap-2 rounded-lg px-3 py-1.5 select-none data-focus:bg-white/10"
+                      >
+                        <CheckIcon className="invisible size-4 fill-white group-data-selected:visible" />
+                        <div className="text-sm/6 text-white">{refundType.name}</div>
+                      </ListboxOption>
+                    ))}
+                  </ListboxOptions>
+                </Listbox>
+              </Field>
+            </>
+          );
+        case "addItem":
+          return (
+            <>
+              <div className="mt-3">
+                <label className="text-sm font-medium text-black">Item Name</label>
+                <input
+                  type="text"
+                  placeholder="Enter item name"
+                  className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div className="mt-3">
+                <label className="text-sm font-medium text-black">Quantity</label>
+                <input
+                  type="number"
+                  placeholder="1"
+                  className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </>
+          );
+        case "addNote":
+          return (
+            <div className="mt-3">
+              <label className="text-sm font-medium text-black">Note</label>
+              <textarea
+                placeholder="Enter note"
+                className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          );
+        case "callback":
+          return (
+            <div className="mt-3">
+              <label className="text-sm font-medium text-black">Callback Date</label>
+              <input
+                type="date"
+                className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          );
+        case "invoice":
+          return (
+            <div className="mt-3">
+              <label className="text-sm font-medium text-black">Customer Email</label>
+              <input
+                type="email"
+                placeholder="customer@example.com"
+                className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          );
+        default:
+          return <p className="mt-3 text-sm text-gray-500">No form available.</p>;
+      }
+    };
+
+    return (
+      <Dialog open={isOpen} onClose={onClose} className="relative z-50">
+        {/* backdrop */}
+        <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+        {/* modal content */}
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
+            <DialogTitle className="text-lg font-bold text-gray-900 capitalize">{actionType}</DialogTitle>
+            <div>{renderFields()}</div>
+            <div className="mt-7 flex justify-end gap-2">
+              <button onClick={onClose} className="rounded-md bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300">
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // handle submit here
+                  onClose();
+                }}
+                className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+              >
+                Confirm
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+    );
+  };
 
   return (
     <main className="flex items-start justify-center min-h-screen bg-gray-50 pt-16">
@@ -294,47 +457,37 @@ export default function Order() {
             <section className="col-span-6 bg-white rounded-lg shadow p-6 h-40">
               <h2 className="text-lg font-semibold mb-4">Actions</h2>
               <div className="flex flex-wrap gap-3">
-                <Menu as="div" className="relative inline-block">
-                  <MenuButton className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700">
-                    Issue Refund
-                    <ChevronDownIcon aria-hidden="true" className="-mr-1 size-5 text-gray-400" />
-                  </MenuButton>
-
-                  <MenuItems
-                    transition
-                    className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-gray-800 outline-1 -outline-offset-1 outline-white/10 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
-                  >
-                    <div className="py-1">
-                      <MenuItem>
-                        <a
-                          href="#"
-                          className="block px-4 py-2 text-sm text-gray-300 data-focus:bg-white/5 data-focus:text-white data-focus:outline-hidden"
-                        >
-                          Store Credit
-                        </a>
-                      </MenuItem>
-                      <MenuItem>
-                        <a
-                          href="#"
-                          className="block px-4 py-2 text-sm text-gray-300 data-focus:bg-white/5 data-focus:text-white data-focus:outline-hidden"
-                        >
-                          Refund
-                        </a>
-                      </MenuItem>
-                    </div>
-                  </MenuItems>
-                </Menu>
+                {/* Action Popup Modal */}
+                <ActionModal isOpen={isOpen} onClose={() => setIsOpen(false)} actionType={actionType} />
                 <Menu>
-                  <MenuButton className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700">
+                  <MenuButton
+                    onClick={() => openModal("refund")}
+                    className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 hover:bg-gray-700"
+                  >
+                    Issue Refund
+                  </MenuButton>
+                  <MenuButton
+                    onClick={() => openModal("addItem")}
+                    className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700"
+                  >
                     Add Item
                   </MenuButton>
-                  <MenuButton className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700">
+                  <MenuButton
+                    onClick={() => openModal("addNote")}
+                    className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700"
+                  >
                     Add Note
                   </MenuButton>
-                  <MenuButton className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700">
+                  <MenuButton
+                    onClick={() => openModal("callback")}
+                    className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700"
+                  >
                     Call Back Request
                   </MenuButton>
-                  <MenuButton className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700">
+                  <MenuButton
+                    onClick={() => openModal("invoice")}
+                    className="inline-flex items-center gap-2 rounded-md bg-gray-800 px-3 py-1.5 mx-2 text-sm/6 font-semibold text-white shadow-inner shadow-white/10 focus:not-data-focus:outline-none data-focus:outline data-focus:outline-white data-hover:bg-gray-700 data-open:bg-gray-700"
+                  >
                     Send Invoice
                   </MenuButton>
                 </Menu>

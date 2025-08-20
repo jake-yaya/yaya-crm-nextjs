@@ -98,8 +98,7 @@ function formOrderSummaryObject(deposcoOrder, shopifyOrder, netsuiteOrder) {
   const orderSummary = {
     orderNumber: deposcoOrder.number,
     orderStatus:
-      (shopifyOrder.fulfillment_status === "partial" ? "Partially Shipped" : shopifyOrder.fulfillment_status) ||
-      deposcoOrder.currentStatus,
+      (shopifyOrder.fulfillment_status === "partial" ? "Partially Shipped" : shopifyOrder.fulfillment_status) || deposcoOrder.currentStatus,
     netsuiteOrderStatus: netsuiteOrder.orderStatus.refName,
     subtotal: deposcoOrder.orderSubTotal,
     taxTotal: deposcoOrder.orderTaxTotal,
@@ -108,10 +107,7 @@ function formOrderSummaryObject(deposcoOrder, shopifyOrder, netsuiteOrder) {
     discount: shopifyOrder ? shopifyOrder.total_discounts : "0.00",
     discountCode: shopifyOrder && shopifyOrder.discount_codes.length > 0 ? shopifyOrder.discount_codes[0].code : "",
     addInfo: deposcoOrder.customAttribute7,
-    weight: deposcoOrder.orderLines.orderLine.reduce(
-      (accumulator, ol) => accumulator + Number(ol.pack.weight) * Number(ol.orderPackQuantity),
-      0
-    ),
+    weight: deposcoOrder.orderLines.orderLine.reduce((accumulator, ol) => accumulator + Number(ol.pack.weight) * Number(ol.orderPackQuantity), 0),
     shipMethod: deposcoOrder.customAttribute4,
     refundTotal: 0, //needs implementing
   };
