@@ -1,34 +1,37 @@
 "use client";
-// For menu buttons
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-// For dialog modals
+import { Menu, MenuButton } from "@headlessui/react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
-// For input fields
-import { Description, Field, Input, Label } from "@headlessui/react";
-// For Dropdown Menus
+import { Field, Input, Label, Textarea } from "@headlessui/react";
 import { Listbox, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/react";
-import clsx from "clsx";
+import { Clipboard, ClipboardCheck } from "lucide-react";
 import { ChevronDownIcon, CheckIcon } from "@heroicons/react/20/solid";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import clsx from "clsx";
 
 function formatDate(dateString) {
   const date = new Date(dateString);
-  return date.toLocaleString("en-US", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0"); // months are 0-based
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day} @ ${hours}:${minutes}`;
+}
+
+function formatDateWithoutTime(dateString) {
+  const date = new Date(dateString);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0"); // Months are zero-based
+  const day = String(date.getUTCDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 //Types of Refunds Available when user presses Issue Refund button
-const refundTypes = [
-  { id: 1, name: "Store Credit" },
-  { id: 2, name: "Refund" },
-];
+const refundTypes = ["Store Credit", "Refund"];
 
 export default function Order() {
   const params = useParams();
@@ -37,9 +40,9 @@ export default function Order() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("timeline"); // timeline | notes | tasks
   const [isOpen, setIsOpen] = useState(false);
-  const [selected, setSelected] = useState(null);
   const [selectRefundType, setSelectedRefundType] = useState(refundTypes[0]);
   const [actionType, setActionType] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const openModal = (type) => {
     setActionType(type);
@@ -52,16 +55,6 @@ export default function Order() {
       style: "currency",
       currency: "USD",
     });
-  };
-
-  const calculateOrderWeight = (order) => {
-    if (order === null || order === undefined || order === "") return "—";
-    let orderWeight = 0;
-    console.log(order);
-    order.orderLines.orderLine.forEach((ol) => {
-      orderWeight += Number(ol.orderPackQuantity) * Number(ol.pack.weight);
-    });
-    return orderWeight;
   };
 
   const formatPhone = (phone) => {
@@ -81,6 +74,28 @@ export default function Order() {
     if (response.status === 200) setOrderData(data);
     else setError(data.error);
     setLoading(false);
+  };
+
+  const handleOrderRefund = async (refundData) => {
+    console.log(refundData);
+    let orderRefundRes = await fetch("/api/issueRefund", {
+      method: "POST",
+      header: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(refundData),
+    });
+    return await orderRefundRes.json();
+  };
+
+  const handleOrderAction = async (orderAction, data) => {
+    data.orderNumber = orderData.orderSummary.orderNumber;
+    data.orderSource = orderData.orderSummary.orderSource;
+    let orderActionRes;
+    if (orderAction == "refund") {
+      orderActionRes = await handleOrderRefund(data);
+    }
+    console.log(orderActionRes);
   };
 
   useEffect(() => {
@@ -103,7 +118,9 @@ export default function Order() {
           {timeline.map((item, idx) => (
             <div key={idx} className="flex flex-col">
               <span className="text-sm font-medium text-gray-600">{item.label}</span>
-              <span className="text-base text-gray-900">{item.date ? formatDate(item.date) : <span className="text-gray-400 italic">N/A</span>}</span>
+              <span className="text-base text-gray-900">
+                {item.date ? formatDate(item.date) : <span className="text-gray-400 italic">N/A</span>}
+              </span>
             </div>
           ))}
         </div>
@@ -142,27 +159,62 @@ export default function Order() {
     return null;
   }
 
-  function renderOrderItems(orderItems) {
-    return (
-      <tbody>
-        {orderItems.map((lineItem, index) => (
-          <tr key={index} className="border-t">
-            {/* Image column */}
-            <td className="px-4 py-2">
-              <img src={lineItem.image} alt={lineItem.sku} className="w-16 h-16 object-cover rounded" />
-            </td>
-            <td className="px-4 py-2">{lineItem.sku}</td>
-            <td className="px-4 py-2">${lineItem.price}</td>
-            <td className="px-4 py-2">{lineItem.quantity}</td>
-            <td className="px-4 py-2">${lineItem.total_paid}</td>
-            <td className="px-4 py-2">{lineItem.status}</td>
-          </tr>
-        ))}
-      </tbody>
-    );
-  }
+  const CopyButton = ({ text }) => {
+    const [copied, setCopied] = useState(false);
 
-  function renderCustomerDetails(customer) {
+    const handleCopy = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000); // reset after 2s
+      } catch (err) {
+        console.error("Failed to copy: ", err);
+      }
+    };
+
+    return (
+      <div onClick={handleCopy} className="mr-5">
+        {copied ? <ClipboardCheck className="w-5 h-5 text-green-600" /> : <Clipboard className="w-5 h-5 text-gray-500" />}
+      </div>
+    );
+  };
+
+  const OrderItems = ({ orderItems }) => {
+    return (
+      <section className="col-span-6 bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold mb-4">Order Items</h2>
+        <table className="min-w-full border border-gray-200 rounded-lg overflow-hidden">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="px-4 py-2 text-left">Image</th>
+              <th className="px-4 py-2 text-left">SKU</th>
+              <th className="px-4 py-2 text-left">Price</th>
+              <th className="px-4 py-2 text-left">Quantity</th>
+              <th className="px-4 py-2 text-left">Total Paid</th>
+              <th className="px-4 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orderItems.map((lineItem, index) => (
+              <tr key={index} className="border-t">
+                {/* Image column */}
+                <td className="px-4 py-2">
+                  <img src={lineItem.image} alt={lineItem.sku} className="w-16 h-16 object-cover rounded" />
+                </td>
+                <td className="px-4 py-2">{lineItem.sku}</td>
+                <td className="px-4 py-2">${lineItem.price}</td>
+                <td className="px-4 py-2">{lineItem.quantity}</td>
+                <td className="px-4 py-2">${lineItem.total_paid}</td>
+                <td className="px-4 py-2">{lineItem.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    );
+  };
+
+  const CustomerDetails = ({ customer }) => {
     return (
       <section className="col-span-3 bg-white rounded-lg shadow p-6 h-100">
         <h2 className="text-lg font-semibold mb-4">Customer</h2>
@@ -175,9 +227,12 @@ export default function Order() {
             <dt className="text-sm text-gray-500">Email</dt>
             <dd className="mt-1 text-base font-medium text-gray-900">
               {customer.email ? (
-                <a className="text-blue-600 hover:underline" href={`mailto:${customer.email}`}>
-                  {customer.email}
-                </a>
+                <div className="flex items-center">
+                  <a className="text-blue-600 hover:underline mr-2" href={`mailto:${customer.email}`}>
+                    {customer.email}
+                  </a>
+                  <CopyButton text={customer.email} />
+                </div>
               ) : (
                 "—"
               )}
@@ -202,9 +257,9 @@ export default function Order() {
         </dl>
       </section>
     );
-  }
+  };
 
-  function renderOrderSummary(orderSummary) {
+  const OrderSummary = ({ orderSummary }) => {
     return (
       <section className="col-span-3 bg-white rounded-lg shadow p-6 h-100">
         <div className="flex items-start justify-between">
@@ -241,7 +296,9 @@ export default function Order() {
             </div>
             <div>
               <dt className="text-sm text-gray-500">Add Info</dt>
-              <dd className="mt-1 text-base text-gray-900 max-w-full overflow-x-auto whitespace-nowrap">{orderSummary.addInfo}</dd>
+              <dd className="mt-1 text-base text-gray-900 max-w-full overflow-x-auto whitespace-nowrap">
+                {orderSummary.addInfo}
+              </dd>
             </div>
             <div>
               <dt className="text-sm text-gray-500">Weight</dt>
@@ -259,19 +316,25 @@ export default function Order() {
         </div>
       </section>
     );
-  }
+  };
 
-  function renderOrderOverview(orderSummary) {
+  const OrderOverview = ({ orderSummary }) => {
     return (
       <section className="col-span-6 bg-white rounded-lg shadow p-6">
         <div className="flex items-center">
-          <h2 className="text-lg font-semibold mr-5">{orderSummary.orderNumber}</h2>
+          <h2 className="text-lg font-semibold mr-2">{orderSummary.orderNumber}</h2>
+          <CopyButton text={orderSummary.orderNumber} />
           <p className="bg-green-500 text-white px-2 py-1 rounded-lg font-semibold mr-5">{orderSummary.orderStatus}</p>
           <p className="bg-blue-500 text-white px-2 py-1 rounded-lg font-semibold mr-5">{orderSummary.netsuiteOrderStatus}</p>
         </div>
+        <div className="flex items-center pt-2">
+          <h2 className="text-lg font-semibold">
+            Promised Delivery Date: {formatDateWithoutTime(orderData.orderSummary.promisedDeliveryDate)}
+          </h2>
+        </div>
       </section>
     );
-  }
+  };
 
   const ActionModal = ({ isOpen, onClose, actionType }) => {
     const renderFields = () => {
@@ -284,18 +347,75 @@ export default function Order() {
                 <div className="relative mt-3">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-gray-500">$</span>{" "}
                   <Input
+                    name="refundAmount"
                     className={clsx(
                       "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
                       "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
                       "pl-7"
                     )}
-                  />{" "}
+                  />
                 </div>
               </Field>
               <Field className="mt-3">
                 <Label className="text-sm/6 font-medium text-black mt-3">Description</Label>
                 <div className="relative mt-3">
                   <Input
+                    name="refundDescription"
+                    className={clsx(
+                      "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    )}
+                  />
+                </div>
+              </Field>
+              <Field className="mt-3">
+                <Label className="text-sm/6 font-medium text-black mt-3">Refund Type</Label>
+                <div className="relative mt-3">
+                  <Listbox name="refundType" value={selectRefundType} onChange={setSelectedRefundType}>
+                    <ListboxButton
+                      className={clsx(
+                        "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm text-left",
+                        "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      )}
+                    >
+                      {selectRefundType}
+                      <ChevronDownIcon
+                        className="group pointer-events-none absolute top-2.5 right-2.5 size-4 fill-black/60"
+                        aria-hidden="true"
+                      />
+                    </ListboxButton>
+                    <ListboxOptions
+                      anchor="bottom"
+                      transition
+                      className={clsx(
+                        "w-(--button-width) rounded-lg border border-gray-300 bg-white py-1.5 [--anchor-gap:--spacing(1)] focus:outline-none",
+                        "transition duration-100 ease-in data-leave:data-closed:opacity-0"
+                      )}
+                    >
+                      {refundTypes.map((refundType) => (
+                        <ListboxOption
+                          key={refundType}
+                          value={refundType}
+                          className="group flex cursor-default gap-2 rounded-lg px-3 py-1.5 select-none data-focus:bg-white/10"
+                        >
+                          <CheckIcon className="invisible size-4 fill-black group-data-selected:visible" />
+                          <div className="text-sm/6 text-black">{refundType}</div>
+                        </ListboxOption>
+                      ))}
+                    </ListboxOptions>
+                  </Listbox>
+                </div>
+              </Field>
+            </>
+          );
+        case "addItem":
+          return (
+            <>
+              <Field className="mt-3">
+                <Label className="text-sm/6 font-medium text-black mt-3">Item Name</Label>
+                <div className="relative mt-3">
+                  <Input
+                    name="addItemName"
                     className={clsx(
                       "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
                       "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -304,92 +424,69 @@ export default function Order() {
                 </div>
               </Field>
               <Field className="mt-3">
-                <Label className="text-sm/6 font-medium text-black mt-3">Description</Label>
-                <Listbox value={selectRefundType} onChange={setSelectedRefundType}>
-                  <ListboxButton
+                <Label className="text-sm/6 font-medium text-black mt-3">Quantity</Label>
+                <div className="relative mt-3">
+                  <Input
+                    name="addItemQuantity"
+                    type="number"
+                    placeholder="1"
+                    min={1}
                     className={clsx(
-                      "relative block w-full rounded-lg bg-white/5 py-1.5 pr-8 pl-3 text-left text-sm/6 text-white",
-                      "focus:not-data-focus:outline-none data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25"
+                      "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     )}
-                  >
-                    {selectRefundType.name}
-                    <ChevronDownIcon className="group pointer-events-none absolute top-2.5 right-2.5 size-4 fill-white/60" aria-hidden="true" />
-                  </ListboxButton>
-                  <ListboxOptions
-                    anchor="bottom"
-                    transition
-                    className={clsx(
-                      "absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white shadow-lg",
-                      "ring-1 ring-black ring-opacity-5 focus:outline-none",
-                      "transition duration-100 ease-in data-leave:data-closed:opacity-0"
-                    )}
-                  >
-                    {refundTypes.map((refundType) => (
-                      <ListboxOption
-                        key={refundType.name}
-                        value={refundType.name}
-                        className="group flex cursor-default items-center gap-2 rounded-lg px-3 py-1.5 select-none data-focus:bg-white/10"
-                      >
-                        <CheckIcon className="invisible size-4 fill-white group-data-selected:visible" />
-                        <div className="text-sm/6 text-white">{refundType.name}</div>
-                      </ListboxOption>
-                    ))}
-                  </ListboxOptions>
-                </Listbox>
+                  />
+                </div>
               </Field>
-            </>
-          );
-        case "addItem":
-          return (
-            <>
-              <div className="mt-3">
-                <label className="text-sm font-medium text-black">Item Name</label>
-                <input
-                  type="text"
-                  placeholder="Enter item name"
-                  className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div className="mt-3">
-                <label className="text-sm font-medium text-black">Quantity</label>
-                <input
-                  type="number"
-                  placeholder="1"
-                  className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
             </>
           );
         case "addNote":
           return (
-            <div className="mt-3">
-              <label className="text-sm font-medium text-black">Note</label>
-              <textarea
-                placeholder="Enter note"
-                className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+            <Field className="mt-3">
+              <Label className="text-sm/6 font-medium text-black mt-3">Note</Label>
+              <div className="relative mt-3">
+                <Textarea
+                  name="addNoteNote"
+                  className={clsx(
+                    "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  )}
+                />
+              </div>
+            </Field>
           );
         case "callback":
           return (
-            <div className="mt-3">
-              <label className="text-sm font-medium text-black">Callback Date</label>
-              <input
-                type="date"
-                className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+            <Field className="mt-3">
+              <Label className="text-sm/6 font-medium text-black mt-3">Callback Date</Label>
+              <div className="relative mt-3">
+                <Input
+                  type="date"
+                  name="callbackDate"
+                  className={clsx(
+                    "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  )}
+                />
+              </div>
+            </Field>
           );
         case "invoice":
           return (
-            <div className="mt-3">
-              <label className="text-sm font-medium text-black">Customer Email</label>
-              <input
-                type="email"
-                placeholder="customer@example.com"
-                className="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+            <Field className="mt-3">
+              <Label className="text-sm/6 font-medium text-black mt-3">Customer Email</Label>
+              <div className="relative mt-3">
+                <Input
+                  type="email"
+                  name="invoiceCustomerEmail"
+                  placeholder="customer@example.com"
+                  className={clsx(
+                    "block w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm/6 text-gray-900 placeholder-gray-400 shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  )}
+                />
+              </div>
+            </Field>
           );
         default:
           return <p className="mt-3 text-sm text-gray-500">No form available.</p>;
@@ -398,27 +495,29 @@ export default function Order() {
 
     return (
       <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-        {/* backdrop */}
         <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
-        {/* modal content */}
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel className="mx-auto w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
             <DialogTitle className="text-lg font-bold text-gray-900 capitalize">{actionType}</DialogTitle>
-            <div>{renderFields()}</div>
-            <div className="mt-7 flex justify-end gap-2">
-              <button onClick={onClose} className="rounded-md bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300">
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  // handle submit here
-                  onClose();
-                }}
-                className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
-              >
-                Confirm
-              </button>
-            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries()); // convert to object
+                handleOrderAction(actionType, data);
+                onClose();
+              }}
+            >
+              {renderFields()}
+              <div className="mt-7 flex justify-end gap-2">
+                <button onClick={onClose} className="rounded-md bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300">
+                  Cancel
+                </button>
+                <button type="submit" className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">
+                  Confirm
+                </button>
+              </div>
+            </form>
           </DialogPanel>
         </div>
       </Dialog>
@@ -446,13 +545,9 @@ export default function Order() {
 
           {/* Right Column: Order Details */}
           <div className="flex-1 grid grid-cols-6 gap-x-6 gap-y-5">
-            {/* Order Overview Card */}
-            {renderOrderOverview(orderData.orderSummary)}
-            {/* Customer Card */}
-            {renderCustomerDetails(orderData.customer)}
-
-            {/* Order Summary Card */}
-            {renderOrderSummary(orderData.orderSummary)}
+            <OrderOverview orderSummary={orderData.orderSummary} />
+            <CustomerDetails customer={orderData.customer} />
+            <OrderSummary orderSummary={orderData.orderSummary} />
             {/* Order Actions Card */}
             <section className="col-span-6 bg-white rounded-lg shadow p-6 h-40">
               <h2 className="text-lg font-semibold mb-4">Actions</h2>
@@ -494,22 +589,7 @@ export default function Order() {
               </div>
             </section>
             {/* Order Items Card */}
-            <section className="col-span-6 bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Order Items</h2>
-              <table className="min-w-full border border-gray-200 rounded-lg overflow-hidden">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Image</th>
-                    <th className="px-4 py-2 text-left">SKU</th>
-                    <th className="px-4 py-2 text-left">Price</th>
-                    <th className="px-4 py-2 text-left">Quantity</th>
-                    <th className="px-4 py-2 text-left">Total Paid</th>
-                    <th className="px-4 py-2 text-left">Status</th>
-                  </tr>
-                </thead>
-                {renderOrderItems(orderData.orderItems)}
-              </table>
-            </section>
+            <OrderItems orderItems={orderData.orderItems} />
           </div>
         </div>
       )}

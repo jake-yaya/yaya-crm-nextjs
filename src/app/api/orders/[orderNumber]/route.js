@@ -1,6 +1,7 @@
-import { getDeposcoOrderAndChildOrders, getTradingPartner } from "../../../lib/deposco";
-import { getNetsuiteOrderId, getNetsuiteOrder } from "../../../lib/netsuite";
-import { getShopifyOrderData } from "../../../lib/shopify";
+import { getDeposcoOrderAndChildOrders } from "../../../lib/deposco/order";
+import { getSiteData } from "../../../lib/database/order";
+import { getNetsuiteOrderId, getNetsuiteOrder } from "../../../lib/netsuite/order";
+import { getShopifyOrderData } from "../../../lib/shopify/order";
 
 function formOrderItemsObject(deposcoOrder, shopifyOrder, productImages) {
   const orderItems = [];
@@ -97,9 +98,12 @@ function formOrderNotesObject(shopifyEvents) {
 function formOrderSummaryObject(deposcoOrder, shopifyOrder, netsuiteOrder) {
   const orderSummary = {
     orderNumber: deposcoOrder.number,
+    orderSource: deposcoOrder.orderSource,
     orderStatus:
-      (shopifyOrder.fulfillment_status === "partial" ? "Partially Shipped" : shopifyOrder.fulfillment_status) || deposcoOrder.currentStatus,
+      (shopifyOrder.fulfillment_status === "partial" ? "Partially Shipped" : shopifyOrder.fulfillment_status) ||
+      deposcoOrder.currentStatus,
     netsuiteOrderStatus: netsuiteOrder.orderStatus.refName,
+    promisedDeliveryDate: deposcoOrder.plannedArrivalDate,
     subtotal: deposcoOrder.orderSubTotal,
     taxTotal: deposcoOrder.orderTaxTotal,
     shippingPaid: deposcoOrder.orderShipTotal,
@@ -107,7 +111,10 @@ function formOrderSummaryObject(deposcoOrder, shopifyOrder, netsuiteOrder) {
     discount: shopifyOrder ? shopifyOrder.total_discounts : "0.00",
     discountCode: shopifyOrder && shopifyOrder.discount_codes.length > 0 ? shopifyOrder.discount_codes[0].code : "",
     addInfo: deposcoOrder.customAttribute7,
-    weight: deposcoOrder.orderLines.orderLine.reduce((accumulator, ol) => accumulator + Number(ol.pack.weight) * Number(ol.orderPackQuantity), 0),
+    weight: deposcoOrder.orderLines.orderLine.reduce(
+      (accumulator, ol) => accumulator + Number(ol.pack.weight) * Number(ol.orderPackQuantity),
+      0
+    ),
     shipMethod: deposcoOrder.customAttribute4,
     refundTotal: 0, //needs implementing
   };
@@ -124,8 +131,8 @@ export async function GET(request, { params }) {
       return new Response(JSON.stringify({ error: "Order not found in Deposco" }), { status: 404 });
     }
 
-    // 2️⃣ Trading Partner
-    const tradingPartnerData = await getTradingPartner(deposcoOrder.orderSource);
+    // 2️⃣ Get Site Data
+    const siteData = await getSiteData(deposcoOrder.orderSource);
 
     // 3️⃣ Netsuite
     const netsuiteOrderId = await getNetsuiteOrderId(orderNumber);
@@ -135,13 +142,12 @@ export async function GET(request, { params }) {
     let shopifyOrder = null;
     let shopifyEvents = [];
     let shopifyProductImages = [];
-    if (tradingPartnerData?.site_type === "Shopify") {
-      const shopifyData = await getShopifyOrderData(tradingPartnerData, orderNumber, deposcoOrder.importReference);
+    if (siteData?.site_type === "Shopify") {
+      const shopifyData = await getShopifyOrderData(siteData, orderNumber, deposcoOrder.importReference);
       shopifyOrder = shopifyData.order;
       shopifyEvents = shopifyData.events;
       shopifyProductImages = shopifyData.productImages;
     }
-
     // ✅ Return combined response
     return new Response(
       JSON.stringify({

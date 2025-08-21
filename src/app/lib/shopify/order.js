@@ -1,4 +1,4 @@
-import { getProductImages } from "../../data/shopifyGraphQLRequestData";
+import { getProductImages } from "../../../data/shopifyGraphQLRequestData";
 
 function basicAuth(username, password) {
   return "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
@@ -15,26 +15,25 @@ function parseProductImages(data) {
   return productImagesMap;
 }
 
-export async function getShopifyOrderData(tradingPartnerData, orderNumber, importReference) {
+export async function getShopifyOrderData(siteData, orderNumber, importReference) {
   const shopifyOrderURL =
-    tradingPartnerData.site_url + process.env.SHOPIFY_ORDER_BY_DEPOSCO_NUMBER_URL.replace("{orderNumber}", orderNumber);
+    siteData.site_url + process.env.SHOPIFY_ORDER_BY_DEPOSCO_NUMBER_URL.replace("{orderNumber}", orderNumber);
 
-  const shopifyEventsURL =
-    tradingPartnerData.site_url + process.env.SHOPIFY_EVENTS_URL.replace("{shopifyOrderId}", importReference);
+  const shopifyEventsURL = siteData.site_url + process.env.SHOPIFY_EVENTS_URL.replace("{shopifyOrderId}", importReference);
 
-  const shopifyProductImagesURL = tradingPartnerData.site_url + process.env.SHOPIFY_GRAPHQL_URL;
+  const shopifyProductImagesURL = siteData.site_url + process.env.SHOPIFY_GRAPHQL_URL;
   const [orderRes, eventsRes, productImagesRes] = await Promise.all([
     fetch(shopifyOrderURL, {
       headers: {
         Accept: "application/json",
-        Authorization: basicAuth(tradingPartnerData.site_username, tradingPartnerData.site_password),
+        Authorization: basicAuth(siteData.site_username, siteData.site_password),
       },
       cache: "no-store",
     }),
     fetch(shopifyEventsURL, {
       headers: {
         Accept: "application/json",
-        Authorization: basicAuth(tradingPartnerData.site_username, tradingPartnerData.site_password),
+        Authorization: basicAuth(siteData.site_username, siteData.site_password),
       },
       cache: "no-store",
     }),
@@ -43,12 +42,13 @@ export async function getShopifyOrderData(tradingPartnerData, orderNumber, impor
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": tradingPartnerData.site_password,
+        "X-Shopify-Access-Token": siteData.site_password,
       },
       body: getProductImages(orderNumber),
       cache: "no-store",
     }),
   ]);
+
   return {
     order: (await orderRes.json()).orders?.[0] ?? null,
     events: (await eventsRes.json()).events ?? [],

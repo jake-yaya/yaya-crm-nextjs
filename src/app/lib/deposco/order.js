@@ -25,18 +25,3 @@ export async function getDeposcoOrderAndChildOrders(orderNumber) {
     deposcoChildOrders: (await childOrdersRes.json()).order ?? [],
   };
 }
-
-export async function getTradingPartner(orderSource) {
-  const res = await fetch(process.env.TRADING_PARTNER_URL, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      Authorization: basicAuth(process.env.DEPOSCO_USERNAME, process.env.DEPOSCO_PASSWORD),
-      "Content-Type": "text/plain",
-    },
-    body: `select * from site_reference where description = '${orderSource}'`,
-    next: { revalidate: 3600 },
-  });
-  const data = await res.json();
-  return data?.[0] ?? null;
-}
